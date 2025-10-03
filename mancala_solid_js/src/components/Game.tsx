@@ -1,4 +1,5 @@
-import { createSignal, Show } from 'solid-js';
+
+import { createSignal, Show, onMount } from 'solid-js';
 import {
   prepareGame,
   playTurn,
@@ -34,9 +35,17 @@ const Game = () => {
   const startGame = (mode: GameModeEnum) => {
     setGameMode(mode);
     restartGame(numberOfStones());
+    if (mode === GameModeEnum.AVA) {
+      setTimeout(() => handleAITurn(Player.PLAYER_1), 500);
+    }
   };
 
-  const animateTurn = (states: number[][], focusedPits: number[], initialStones: number, callback: () => void) => {
+  const animateTurn = (
+    states: number[][],
+    focusedPits: number[],
+    initialStones: number,
+    callback: () => void
+  ) => {
     setIsAnimating(true);
     setStonesToMove(initialStones);
     let i = 0;
@@ -53,7 +62,7 @@ const Game = () => {
       setGameState(states[i]);
       setFocusedPit(focusedPits[i]);
       if (i > 0) {
-        setStonesToMove(prev => prev - 1);
+        setStonesToMove((prev) => prev - 1);
       }
       i++;
 
@@ -64,7 +73,7 @@ const Game = () => {
   };
 
   const handlePitClick = (pitIndex: number) => {
-    if (winner() !== null || isAnimating()) return;
+    if (winner() !== null || isAnimating() || gameMode() === GameModeEnum.AVA) return;
 
     const player = currentPlayer();
 
@@ -73,7 +82,11 @@ const Game = () => {
     }
 
     const initialStones = gameState()[player + pitIndex];
-    const { playAgain, success, states, focusedPits } = playTurn(gameState(), player, pitIndex + 1);
+    const { playAgain, success, states, focusedPits } = playTurn(
+      gameState(),
+      player,
+      pitIndex + 1
+    );
 
     if (success) {
       animateTurn(states, focusedPits, initialStones, () => {
@@ -83,31 +96,42 @@ const Game = () => {
         }
 
         if (!playAgain) {
-          const nextPlayer = player === Player.PLAYER_1 ? Player.PLAYER_2 : Player.PLAYER_1;
+          const nextPlayer =
+            player === Player.PLAYER_1 ? Player.PLAYER_2 : Player.PLAYER_1;
           setCurrentPlayer(nextPlayer);
-          if (gameMode() === GameModeEnum.PVA && nextPlayer === Player.PLAYER_2) {
-            setTimeout(aiTurn, 500);
+          if (
+            gameMode() === GameModeEnum.PVA &&
+            nextPlayer === Player.PLAYER_2
+          ) {
+            setTimeout(() => handleAITurn(Player.PLAYER_2), 500);
           }
-        } else if (gameMode() === GameModeEnum.PVA && player === Player.PLAYER_2) {
-          setTimeout(aiTurn, 500);
+        } else if (
+          gameMode() === GameModeEnum.PVA &&
+          player === Player.PLAYER_2
+        ) {
+          setTimeout(() => handleAITurn(Player.PLAYER_2), 500);
         }
       });
     }
   };
 
-  const aiTurn = () => {
+  const handleAITurn = (player: Player) => {
     const { bestPit } = minimaxAB(
       gameState(),
-      Player.PLAYER_2,
+      player,
       10,
       true,
-      Player.PLAYER_2,
+      player,
       -Infinity,
       Infinity
     );
 
-    const initialStones = gameState()[Player.PLAYER_2 + bestPit -1];
-    const { playAgain, success, states, focusedPits } = playTurn(gameState(), Player.PLAYER_2, bestPit);
+    const initialStones = gameState()[player + bestPit - 1];
+    const { playAgain, success, states, focusedPits } = playTurn(
+      gameState(),
+      player,
+      bestPit
+    );
 
     if (success) {
       animateTurn(states, focusedPits, initialStones, () => {
@@ -117,9 +141,14 @@ const Game = () => {
         }
 
         if (playAgain) {
-          aiTurn();
+          handleAITurn(player);
         } else {
-          setCurrentPlayer(Player.PLAYER_1);
+          const nextPlayer =
+            player === Player.PLAYER_1 ? Player.PLAYER_2 : Player.PLAYER_1;
+          setCurrentPlayer(nextPlayer);
+          if (gameMode() === GameModeEnum.AVA) {
+            setTimeout(() => handleAITurn(nextPlayer), 500);
+          }
         }
       });
     }
@@ -137,7 +166,13 @@ const Game = () => {
         <GameStartPopup onStartGame={startGame} />
       </Show>
       <Show when={gameMode() !== null}>
-        <div class={`${styles.game} ${currentPlayer() === Player.PLAYER_1 ? styles.player1Turn : styles.player2Turn}`}>
+        <div
+          class={`${styles.game} ${
+            currentPlayer() === Player.PLAYER_1
+              ? styles.player1Turn
+              : styles.player2Turn
+          }`}
+        >
           <Show when={isAnimating()}>
             <StonesToMove stones={stonesToMove()} />
           </Show>
@@ -147,10 +182,12 @@ const Game = () => {
             <PlayerComponent
               player={Player.PLAYER_1}
               isCurrent={currentPlayer() === Player.PLAYER_1}
+              gameMode={gameMode()!}
             />
             <PlayerComponent
               player={Player.PLAYER_2}
               isCurrent={currentPlayer() === Player.PLAYER_2}
+              gameMode={gameMode()!}
             />
           </div>
           <Board
@@ -160,9 +197,9 @@ const Game = () => {
             focusedPit={focusedPit()}
           />
           {winner() !== null && (
-            <WinnerPopup 
-              winner={winner()} 
-              onRestart={() => restartGame(numberOfStones())} 
+            <WinnerPopup
+              winner={winner()}
+              onRestart={() => restartGame(numberOfStones())}
               gameMode={gameMode()!}
             />
           )}

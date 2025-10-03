@@ -1,8 +1,10 @@
+
 import styles from './GameStartPopup.module.css';
 
 export const GameModeEnum = {
   PVA: 'Player vs. AI',
   PVP: 'Player vs. Player',
+  AVA: 'AI vs. AI',
 } as const;
 
 export type GameModeEnum = (typeof GameModeEnum)[keyof typeof GameModeEnum];
@@ -23,6 +25,9 @@ const GameStartPopup = (props: GameStartPopupProps) => {
           </button>
           <button onClick={() => props.onStartGame(GameModeEnum.PVA)}>
             Player vs. AI
+          </button>
+          <button onClick={() => props.onStartGame(GameModeEnum.AVA)}>
+            AI vs. AI
           </button>
         </div>
       </div>
